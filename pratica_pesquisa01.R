@@ -16,10 +16,10 @@ head(dados)
 colnames(dados) = c("Tipo", "Alcohol", "Malic_Acid", "Ash", "Alcalinity_of_Ash", "Magnesium", 
                      "Total_Phenols", "Flavanoids", "Nonflavanoid_Phenols", 
                      "Proanthocyanins", "Color_Intensity", "Hue", 
-                     "OD280_OD315_of_Diluted_Wines", "Proline")
+                     "Dilution", "Proline")
 
 # 1a. Calcular a média e desvio padrão para todos os atributos
-summary_stats <- data.frame(
+summary_stats = data.frame(
   Media = sapply(dados[,-1], mean),
   Desvio_Padrao = sapply(dados[,-1], sd)
 )
@@ -48,18 +48,6 @@ for (atributo in colnames(dados)[-1]) {
 print("Gráficos de Box-Plot:")
 for (atributo in colnames(dados)[-1]) {
   print(
-    ggplot(dados, aes_string(x = "factor(Tipo)", y = atributo)) +
-      geom_boxplot() +
-      ggtitle(paste("Box-Plot -", atributo)) +
-      xlab("Tipo de Vinho") +
-      theme_minimal()
-  )
-}
-
-# 1d.2
-print("Gráficos de Box-Plot:")
-for (atributo in colnames(dados)[-1]) {
-  print(
     ggplot(dados, aes_string(x = "factor(Tipo)", y = atributo, fill = "factor(Tipo)")) +
       geom_boxplot() +
       ggtitle(paste("Box-Plot -", atributo)) +
@@ -70,26 +58,9 @@ for (atributo in colnames(dados)[-1]) {
 }
 
 # 1e. Gráfico de dispersão entre os atributos
-print("Gráficos de Dispersão:")
-pairs(dados[,-1], col = dados$Tipo)
-
-
-# 1e.2
-# Instala o pacote GGally, se necessário
-if (!require(GGally)) install.packages("GGally")
-library(GGally)
-
-# Define a primeira coluna como fator para colorir pelo tipo
-dados$Tipo <- factor(dados$Tipo)
-
-# Cria o gráfico de pares com ggpairs
-ggpairs(dados, columns = 2:ncol(dados), aes(color = Tipo, alpha = 0.6)) +
-  theme_minimal()
-
-# 1e.3
 print("Gráficos de Dispersão entre todos os pares de atributos:")
 
-atributos <- colnames(dados)[-1]  # Exclui a coluna Tipo
+atributos = colnames(dados)[-1]  # Exclui a coluna Tipo
 
 for (i in 1:(length(atributos) - 1)) {
   for (j in (i + 1):length(atributos)) {
@@ -104,14 +75,37 @@ for (i in 1:(length(atributos) - 1)) {
 }
 
 
+# 2a. Discretização dos atributos numéricos (exceto a classe) em faixas "alto", "médio" e "baixo"
+# Usaremos a função cut para realizar a discretização de cada atributo
+
+# Seleciona todas as colunas numéricas, excluindo a coluna 'Tipo' (classe)
+dados_aux = dados
+for (atributo in colnames(dados_aux)[-1]) {
+  dados_aux[[atributo]] <- cut(
+    dados_aux[[atributo]],
+    breaks = quantile(dados_aux[[atributo]], probs = c(0, 0.33, 0.67, 1), na.rm = TRUE),
+    labels = c("baixo", "medio", "alto"),
+    include.lowest = TRUE
+  )
+}
+
+# Verificar a transformação
+print("Primeiras linhas dos dados discretizados:")
+head(dados_aux)
+
+# 2b. Converter o atributo Tipo para uma variável categórica
+dados_aux$Tipo <- as.factor(dados$Tipo)
+
+# Verificar a transformação final
+print("Estrutura dos dados após o pré-processamento:")
+str(dados_aux)
+
 # 3 Construa um modelo agrupamento k-means para os dados de vinho usando o DAL Toolbox
 source("https://raw.githubusercontent.com/cefet-rj-dal/daltoolbox/main/jupyter.R")
 
 #loading DAL
 load_library("daltoolbox")
 
-#load dataset
-# data(dados)
 
 # setup clustering
 model = cluster_kmeans(k=3)
@@ -166,5 +160,3 @@ dados_test_predictand <- adjust_class_label(dados_test[,"Tipo"])
 test_eval <- evaluate(model, dados_test_predictand, test_prediction)
 print(test_eval$metrics)
 
-
-# 5 Execute os padrões frequentes a partir dos dados de vinho
